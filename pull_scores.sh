@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 
-vendors='ahnlab bitdefender checkpoint cisco crowdstrike cybereason cycraft cylance cynet deepinstinct elastic eset fidelis fireeye fortinet malwarebytes mcafee microsoft paloaltonetworks qualys rapid7 reaqta sentinelone somma sophos symantec trendmicro uptycs vmware withsecure'
+vendors='cisco cybereason microsoft sentinelone sophos trendmicro'
 
 cd data/
 for val in $vendors; do

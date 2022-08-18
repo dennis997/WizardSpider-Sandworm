@@ -10,8 +10,8 @@ import os
 class EvalMitreResults():
     def __init__(self, filename, strict_mitre=False):
         self._strict_mitre = strict_mitre
-        self._vendor = filename.split(os.sep, 2)[-1]
-        self._vendor = self._vendor.split('.', 1)[0]
+        self._vendor = filename.split(os.sep, -1)
+        self._vendor = self._vendor[-1].split('.', 1)[0]
         print('Processing %s' % self._vendor)
         with open(filename, 'r', encoding='utf-8') as infile:
             data=infile.read()
@@ -141,7 +141,10 @@ if __name__ == '__main__':
     fname = 'wizard-spider-sandworm-mitre.xlsx'
 
     dfs = {}
-    for infile in sorted(glob.glob(os.path.join('data', '*json'))):
+
+    print(os.path.dirname(__file__))
+
+    for infile in sorted(glob.glob(os.path.dirname(__file__) + '/data/*json')):
         obj = EvalMitreResults(infile, args.strict_mitre)
         obj.selectAdversary('wizard-spider-sandworm')
         dfs.update({obj._vendor: obj})
