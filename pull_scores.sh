@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 
-vendors='cisco cybereason microsoft sentinelone sophos trendmicro'
+vendors='microsoft sentinelone sophos paloaltonetworks'
 
 cd data/
 for val in $vendors; do
