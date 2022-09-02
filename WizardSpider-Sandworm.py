@@ -122,7 +122,8 @@ class EvalMitreResults():
             totalSubsteps = self._adv['Aggregate_Data']['Aggregates']['Total_Substeps']
             blockedChains = 0
             subStepScore = 0
-            noResponseCount = False                                                                             # Counter for detections made but no response triggered -> Possible indicator for bad SOAR integration
+            tests = len(self._adv['Protections']['Protection_Tests'])
+            noResponseCount = 0                                                                             # Counter for detections made but no response triggered -> Possible indicator for bad SOAR integration
         except KeyError:
             return 'n/a'
 
@@ -135,7 +136,7 @@ class EvalMitreResults():
                     blockedChains += 1
                     break                                                                                       # Breaks loop if one substep in tests is blocked -> Chain break
                 detected = ['Tactic', 'Technique']
-                if self._df.loc[self._df['Substep'] == step['Substep'], 'Detection'].values[0] in detected:     # If detection was made (Tactic or Technique) and not blocked -> increment counter
+                if self._df.loc[self._df['Substep'] == step['Substep'], 'Detection'].values[0] in detected and not len(step['Footnotes']):     # If detection was made (Tactic or Technique) and not blocked -> increment counter
                     noResponseCount += 1
 
                 # Count number of steps until attack is blocked and apply scoring                                                                   
@@ -143,10 +144,11 @@ class EvalMitreResults():
                     subStepScore += 9/subStepCount                                                              # Score according to weight -> Top15 techniques = 90% of all attacks -> If they are not being blocked. this is really bad
                 else:
                     subStepScore += 1/subStepCount
-        print(f'blockedChains: {blockedChains}')
-        print(f'noResponseCount: {noResponseCount}')
-        print(1-(subStepScore/(totalSubsteps)))
-        return [blockedChains, noResponseCount, 1-(subStepScore/totalSubsteps)]
+        print(f'\n{self._vendor}')
+        print(f'blockedChains: {"{:.3f}".format(blockedChains/tests)}')
+        print(f'noResponseCount: {"{:.3f}".format(noResponseCount/totalSubsteps)}')
+        print(f'weightedSubStepScore: {"{:.1f}".format((1-(subStepScore/totalSubsteps))*100)}\n')
+        return ["{:.3f}".format(blockedChains/tests), "{:.3f}".format(noResponseCount/totalSubsteps), "{:.1f}".format((1-(subStepScore/totalSubsteps))*100)]
 
     # Generate performance metrics
     def scoreVendor(self):
@@ -181,7 +183,7 @@ class EvalMitreResults():
         analytics = (techniques + tactic)/visibility                # adjusted to visibility as the denominator
         protections = self.scoreProtections()
         linux = 'yes' if 'Linux Capability' in self._adv['Participant_Capabilities'] else 'no'
-        return (visibility/substepsDet, techniques/substepsDet, analytics, protections, linux)
+        return ("{:.3f}".format(visibility/substepsDet), "{:.3f}".format(analytics), protections, linux)
 
 
 def parse_args():
@@ -216,15 +218,16 @@ if __name__ == '__main__':
     writer = pd.ExcelWriter(fname, engine='xlsxwriter')
     results = pd.DataFrame(columns=['vendor',       \
                                     'visibility',   \
-                                    'techniques',   \
                                     'analytics',    \
-                                    'protection',   \
+                                    'protection_blockedChains',   \
+                                    'protection_noResponse',   \
+                                    'protection_weightedScore',   \
                                     'linux'])
 
     # Assessment of dataframe and generating output
     for vendor in dfs.keys():
-        (visibility, techniques, analytics, protection, linux) = dfs[vendor].scoreVendor()
-        results.loc[len(results.index)] = {'vendor':vendor, 'visibility':visibility, 'techniques':techniques, 'analytics':analytics, 'protection':protection, 'linux':linux}
+        (visibility, analytics, protection, linux) = dfs[vendor].scoreVendor()
+        results.loc[len(results.index)] = {'vendor':vendor, 'visibility':visibility, 'analytics':analytics, 'protection_blockedChains':protection[0], 'protection_noResponse':protection[1], 'protection_weightedScore':protection[2],  'linux':linux}
     results.to_excel(writer, sheet_name='Results', index=False)
 
     # Write out individual vendor tabs
