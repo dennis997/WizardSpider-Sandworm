@@ -9,11 +9,6 @@ import os
 # Forked version of Josh Zelonis's evaluation script for MITRE ATT&CK Evaluations round 4 (Wizard Spider & Sandworm)
 # The source code was restructured, commented and adjusted to MSSP Evaluation purposes using different metrics and standards, 
 # as well as a different output format and additional plotting capabilities
-#
-# Code structure: 
-# main calls -> Class initilization: __init__()
-# main calls -> selectAdversary() -> iterSteps() -> appendSubstep() -> getDetection()
-# main calls -> scoreVendor() -> scoreProtections()
 
 class EvalMitreResults():
     def __init__(self, filename):                                       
@@ -33,8 +28,6 @@ class EvalMitreResults():
         'Criteria', 'Tactic', 'TechniqueId', 'TechniqueName', 
         'SubtechniqueId', 'SubtechniqueName', 'Detection', 'Modifiers', 'DataSource'))    # Initializes pandas dataframe
 
-
-    
     # Retrieves dictionary of Data Source components across the MITRE knowledge base files to provide lookup functionality
     def getRelations(self):
         dataSourceComponentRelation = {}
@@ -107,9 +100,8 @@ class EvalMitreResults():
 
 
     # Select adversary to analyze
-    def selectAdversary(self, adversary='wizard-spider-sandworm'):
+    def selectAdversary(self, adversary):
         for adversary in self._dataset[0]['Adversaries']:
-            if adversary['Adversary_Name'] == 'wizard-spider-sandworm':
                 self._adv = adversary
                 break
         self.iterSteps()
@@ -153,7 +145,7 @@ class EvalMitreResults():
     # Generate performance metrics
     def scoreVendor(self):
         counts = self._df.Detection.value_counts()
-
+        misses = 0
         try:
             misses = counts['None']
         except KeyError:
@@ -203,14 +195,11 @@ def parse_args():
 
 
 if __name__ == '__main__':
-
+    # Processing ATT&CK Evaluation dataset in dataframe for Wizard Spider & Sandworm
     args = parse_args()
     fname = 'wizard-spider-sandworm-mitre.xlsx'
-
     dfs = {}
-
-    # Processing ATT&CK Evaluation dataset in dataframe
-    for infile in sorted(glob.glob(os.path.dirname(__file__) + '/data/*json')):
+    for infile in sorted(glob.glob(os.path.dirname(__file__) + '/data/wss/*json')):
         dataset = EvalMitreResults(infile)
         dataset.selectAdversary('wizard-spider-sandworm')
         dfs.update({dataset._vendor: dataset})
@@ -234,4 +223,36 @@ if __name__ == '__main__':
     for vendor in dfs.keys():
         dfs[vendor]._df.to_excel(writer, sheet_name=vendor, index=False, columns=['Substep', 'Criteria', 'Tactic', 'TechniqueId', 'TechniqueName', 'SubtechniqueId', 'SubtechniqueName', 'Detection', 'Modifiers', 'DataSource'])
     writer.save()
-    print('%s has been written.' % fname)
+    print(f'{fname} has been written\n')
+
+
+
+    # Processing ATT&CK Evaluation dataset in dataframe for Carbanak & Fin7
+    args = parse_args()
+    fname = 'carbanak-fin7-mitre.xlsx'
+    dfs = {}
+    for infile in sorted(glob.glob(os.path.dirname(__file__) + '/data/cfin/*json')):
+        dataset = EvalMitreResults(infile)
+        dataset.selectAdversary('carbanak-fin7')
+        dfs.update({dataset._vendor: dataset})
+
+    writer = pd.ExcelWriter(fname, engine='xlsxwriter')
+    results = pd.DataFrame(columns=['vendor',       \
+                                    'visibility',   \
+                                    'analytics',    \
+                                    'protection_blockedChains',   \
+                                    'protection_noResponse',   \
+                                    'protection_weightedScore',   \
+                                    'linux'])
+
+    # Assessment of dataframe and generating output
+    for vendor in dfs.keys():
+        (visibility, analytics, protection, linux) = dfs[vendor].scoreVendor()
+        results.loc[len(results.index)] = {'vendor':vendor, 'visibility':visibility, 'analytics':analytics, 'protection_blockedChains':protection[0], 'protection_noResponse':protection[1], 'protection_weightedScore':protection[2],  'linux':linux}
+    results.to_excel(writer, sheet_name='Results', index=False)
+
+    # Write out individual vendor tabs
+    for vendor in dfs.keys():
+        dfs[vendor]._df.to_excel(writer, sheet_name=vendor, index=False, columns=['Substep', 'Criteria', 'Tactic', 'TechniqueId', 'TechniqueName', 'SubtechniqueId', 'SubtechniqueName', 'Detection', 'Modifiers', 'DataSource'])
+    writer.save()
+    print(f'{fname} has been written\n')
