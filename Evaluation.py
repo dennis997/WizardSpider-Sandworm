@@ -115,6 +115,7 @@ class EvalMitreResults():
     # Check how many steps it took until the attack chain was broken -> second metric
         try:
             totalSubsteps = self._adv['Aggregate_Data']['Aggregates']['Total_Substeps']
+            maxSubstepScore = 0
             chainBreaks = 0
             subStepScore = 0
             tests = len(self._adv['Protections']['Protection_Tests'])
@@ -123,9 +124,11 @@ class EvalMitreResults():
             return 'n/a'
 
         for test in self._adv['Protections']['Protection_Tests']:
-            subStepCount = 0
             for step in test['Substeps']:
-                subStepCount += 1
+                if step['Technique']['Technique_Id'] in self._topFifteenTechniques:
+                    maxSubstepScore += 9
+                else:
+                    maxSubstepScore += 1
                 # Checking for chain break                                                                             
                 if step['Protection_Type'] == 'Blocked' and not len(step['Modifiers']):      
                     chainBreaks += 1
@@ -134,18 +137,17 @@ class EvalMitreResults():
                  # If detection was made (Tactic or Technique) and not blocked -> increment counter
                 if self._df.loc[self._df['Substep'] == step['Substep'], 'Detection'].values[0] in detected and not len(step['Footnotes']):     
                     responseCount += 1
-
                 # Count number of steps until attack is blocked and apply scoring
                 # Check if technique is top15 leveraged techniques in ATT&CK Sightingsd                                                                   
                 if step['Technique']['Technique_Id'] in self._topFifteenTechniques:   
-                    subStepScore += 9/subStepCount             # Score according to weight -> Top15 techniques = 90% of all attacks
+                    subStepScore += 9             # Score according to weight -> Top15 techniques = 90% of all attacks
                 else:
-                    subStepScore += 1/subStepCount
+                    subStepScore += 1
         print(f'\n{self._vendor}')
         print(f'chainBreaks: {"{:.2f}".format((chainBreaks/tests)*100)}')
         print(f'responseCount: {"{:.2f}".format((1-(responseCount/totalSubsteps))*100)}')
         print(f'weightedSubStepScore: {"{:.2f}".format((1-(subStepScore/totalSubsteps))*100)}')
-        return [int((chainBreaks/tests)*100), int((1-(responseCount/totalSubsteps))*100), int((1-(subStepScore/totalSubsteps))*100)]
+        return [int((chainBreaks/tests)*100), int((1-(responseCount/totalSubsteps))*100), int((1-(subStepScore/maxSubstepScore))*100)]
 
     # Generate performance metrics
     def scoreVendor(self):
